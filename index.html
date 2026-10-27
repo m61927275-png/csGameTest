@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CS2 Web - Counter-Strike 2 in Browser</title>
+    <link rel="stylesheet" href="./css/style.css">
+    <!-- Three.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <!-- 3D WebGL Canvas Container -->
+    <div id="game-container"></div>
+
+    <!-- MAIN MENU -->
+    <div id="main-menu">
+        <div class="menu-header">
+            <h1>COUNTER-STRIKE 2</h1>
+            <div class="menu-subtitle">WEB EDITION &bull; HIGH FIDELITY FPS ENGINE</div>
+        </div>
+
+        <div class="menu-content">
+            <!-- Left: Map Selection -->
+            <div class="settings-column">
+                <div class="section-title">Выбор Карты (MAP)</div>
+                <div class="map-cards">
+                    <div class="map-card active" data-map="dust2">
+                        <div class="map-thumb dust2">DUST II</div>
+                        <div class="map-name">de_dust2</div>
+                    </div>
+                    <div class="map-card" data-map="mirage">
+                        <div class="map-thumb mirage">MIRAGE</div>
+                        <div class="map-name">de_mirage</div>
+                    </div>
+                    <div class="map-card" data-map="inferno">
+                        <div class="map-thumb inferno">INFERNO</div>
+                        <div class="map-name">de_inferno</div>
+                    </div>
+                </div>
+
+                <div class="section-title">Режим Игры (MODE)</div>
+                <div class="option-buttons" id="mode-buttons">
+                    <button class="opt-btn active" data-mode="competitive">Соревновательный (MR12)</button>
+                    <button class="opt-btn" data-mode="deathmatch">Бой Насмерть (DM)</button>
+                    <button class="opt-btn" data-mode="casual">Обычный</button>
+                </div>
+
+                <div class="section-title">Сложность Ботов (BOT AI)</div>
+                <div class="option-buttons" id="diff-buttons">
+                    <button class="opt-btn" data-diff="EASY">Легко</button>
+                    <button class="opt-btn active" data-diff="NORMAL">Средне</button>
+                    <button class="opt-btn" data-diff="HARD">Сложно</button>
+                    <button class="opt-btn" data-diff="EXPERT">Эксперт</button>
+                </div>
+            </div>
+
+            <!-- Right: Team & Controls -->
+            <div class="settings-column">
+                <div class="section-title">Команда (TEAM)</div>
+                <div class="option-buttons" id="team-buttons">
+                    <button class="opt-btn ct active" data-team="ct">Спецназ (CT)</button>
+                    <button class="opt-btn t" data-team="t">Террористы (T)</button>
+                </div>
+
+                <div class="section-title">Управление (CONTROLS)</div>
+                <div class="controls-panel">
+                    <div><span>W, A, S, D</span> Передвижение (мувмент, стрейфы)</div>
+                    <div><span>SPACE</span> Прыжок (Bunny Hop)</div>
+                    <div><span>SHIFT</span> Ходьба (без звука) &bull; <span>CTRL</span> Присед</div>
+                    <div><span>ЛКМ</span> Огонь / Бросок гранаты</div>
+                    <div><span>ПКМ</span> Прицел снайпера (AWP zoom) / Атака ножом</div>
+                    <div><span>R</span> Перезарядка &bull; <span>Q</span> Быстрое переключение</div>
+                    <div><span>1-5</span> Основное / Пистолет / Нож / Гранаты / C4</div>
+                    <div><span>B</span> Колесо закупки оружия (Buy Menu)</div>
+                    <div><span>TAB</span> Таблица очков (Scoreboard)</div>
+                    <div><span>E</span> Разминировать / Заложить бомбу C4</div>
+                </div>
+
+                <div class="section-title">Количество Ботов</div>
+                <div class="option-row">
+                    <label>Ботов в матче: <span id="bot-count-label">9 (5 на 5)</span></label>
+                    <input type="range" id="bot-count-slider" min="1" max="9" value="9" style="accent-color: #FF5E00; width: 100%;">
+                </div>
+            </div>
+        </div>
+
+        <button class="btn-play" id="btn-play-game">ИГРАТЬ (LAUNCH CS2)</button>
+    </div>
+
+    <!-- IN-GAME HUD -->
+    <div id="hud" style="display: none;">
+        <!-- Top Bar (Scores & Clock) -->
+        <div class="hud-top-bar">
+            <div class="team-score ct">
+                <span class="team-flag ct">CT</span>
+                <span id="score-ct">0</span>
+            </div>
+            <div class="round-timer-box">
+                <div id="round-timer">1:55</div>
+            </div>
+            <div class="team-score t">
+                <span id="score-t">0</span>
+                <span class="team-flag t">T</span>
+            </div>
+        </div>
+
+        <!-- Radar / Minimap -->
+        <div id="radar-box">
+            <canvas id="radar-canvas" width="180" height="180"></canvas>
+        </div>
+
+        <!-- Killfeed -->
+        <div id="killfeed"></div>
+
+        <!-- Money -->
+        <div id="hud-money">$800</div>
+
+        <!-- Bottom Left (Health & Armor) -->
+        <div class="hud-bottom-left">
+            <div class="stat-box">
+                <div class="stat-header">➕ ЗДОРОВЬЕ</div>
+                <div class="stat-val" id="hud-health">100</div>
+                <div class="stat-bar">
+                    <div id="health-bar-fill"></div>
+                </div>
+            </div>
+
+            <div class="stat-box">
+                <div class="stat-header">
+                    🛡️ БРОНЯ <span id="hud-helmet" style="display: none; margin-left: 6px;">⛑️</span>
+                </div>
+                <div class="stat-val" id="hud-armor">0</div>
+                <div class="stat-bar">
+                    <div id="armor-bar-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Right (Weapon & Ammo) -->
+        <div class="hud-bottom-right">
+            <div id="hud-weapon-name">USP-S</div>
+            <div class="ammo-box">
+                <span id="hud-ammo">12</span>
+                <span id="hud-reserve"> / 24</span>
+            </div>
+        </div>
+
+        <!-- Crosshair & Hitmarker -->
+        <div id="crosshair">
+            <div class="ch-dot"></div>
+            <div class="ch-line ch-top"></div>
+            <div class="ch-line ch-bottom"></div>
+            <div class="ch-line ch-left"></div>
+            <div class="ch-line ch-right"></div>
+        </div>
+
+        <div id="hitmarker">
+            <div class="hm-line hm-1"></div>
+            <div class="hm-line hm-2"></div>
+            <div class="hm-line hm-3"></div>
+            <div class="hm-line hm-4"></div>
+        </div>
+
+        <!-- Flashbang Whiteout Overlay -->
+        <div id="flash-overlay"></div>
+
+        <!-- Sniper Scope -->
+        <div id="sniper-scope">
+            <div class="scope-line-h"></div>
+            <div class="scope-line-v"></div>
+        </div>
+
+        <!-- Buy Menu Modal -->
+        <div id="buy-menu">
+            <div class="buy-menu-container">
+                <div class="buy-menu-header">
+                    <h2>МЕНЮ ЗАКУПКИ (BUY MENU)</h2>
+                    <span style="color: #A0AEC0; font-size: 14px;">Нажмите [B] или Клик для выхода</span>
+                </div>
+                <div id="buy-items-grid"></div>
+            </div>
+        </div>
+
+        <!-- Scoreboard Modal (Tab) -->
+        <div id="scoreboard">
+            <div class="sb-team-title ct">Counter-Terrorists (Спецназ)</div>
+            <table class="sb-table">
+                <thead>
+                    <tr><th>Игрок</th><th>Деньги</th><th>Убийства</th><th>Помощь</th><th>Смерти</th><th>Очки</th></tr>
+                </thead>
+                <tbody id="sb-ct-list"></tbody>
+            </table>
+
+            <div class="sb-team-title t">Terrorists (Террористы)</div>
+            <table class="sb-table">
+                <thead>
+                    <tr><th>Игрок</th><th>Деньги</th><th>Убийства</th><th>Помощь</th><th>Смерти</th><th>Очки</th></tr>
+                </thead>
+                <tbody id="sb-t-list"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Game Initializer Script -->
+    <script type="module">
+        import { Renderer } from './js/engine/Renderer.js';
+        import { Input } from './js/engine/Input.js';
+        import { Physics } from './js/engine/Physics.js';
+        import { AudioEngine } from './js/engine/Audio.js';
+        import { HUD } from './js/ui/HUD.js';
+        import { Game } from './js/game/Game.js';
+
+        // Selected Options State
+        let selectedMap = 'dust2';
+        let selectedMode = 'competitive';
+        let selectedDifficulty = 'NORMAL';
+        let selectedTeam = 'ct';
+        let botCount = 9;
+
+        // UI Interactions in Main Menu
+        document.querySelectorAll('.map-card').forEach(card => {
+            card.addEventListener('click', () => {
+                document.querySelectorAll('.map-card').forEach(c => c.classList.remove('active'));
+                card.classList.add('active');
+                selectedMap = card.dataset.map;
+            });
+        });
+
+        document.querySelectorAll('#mode-buttons .opt-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#mode-buttons .opt-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedMode = btn.dataset.mode;
+            });
+        });
+
+        document.querySelectorAll('#diff-buttons .opt-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#diff-buttons .opt-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedDifficulty = btn.dataset.diff;
+            });
+        });
+
+        document.querySelectorAll('#team-buttons .opt-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#team-buttons .opt-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedTeam = btn.dataset.team;
+            });
+        });
+
+        const botSlider = document.getElementById('bot-count-slider');
+        const botLabel = document.getElementById('bot-count-label');
+        botSlider.addEventListener('input', (e) => {
+            botCount = parseInt(e.target.value);
+            const total = botCount + 1;
+            botLabel.innerText = `${botCount} (${Math.ceil(total/2)} на ${Math.floor(total/2)})`;
+        });
+
+        // Start Game
+        const playBtn = document.getElementById('btn-play-game');
+        playBtn.addEventListener('click', () => {
+            const container = document.getElementById('game-container');
+            const mainMenu = document.getElementById('main-menu');
+            const hudElem = document.getElementById('hud');
+
+            mainMenu.style.display = 'none';
+            hudElem.style.display = 'block';
+
+            // Instantiate Engine Modules
+            const renderer = new Renderer(container);
+            const input = new Input(renderer.getRenderer().domElement);
+            input.init();
+
+            const physics = new Physics();
+            const audio = new AudioEngine();
+            audio.init();
+
+            const hud = new HUD();
+            const game = new Game(renderer, input, physics, audio, hud);
+
+            // Launch Game
+            game.start(selectedMap, selectedMode, botCount, selectedDifficulty);
+            if (selectedTeam === 't') {
+                game.player.team = 't';
+                game.player.inventory[1] = 'glock';
+                game.player.currentWeapon = 'glock';
+                game.resetPositions();
+            }
+
+            input.requestPointerLock();
+        });
+    </script>
+</body>
+</html>
+
